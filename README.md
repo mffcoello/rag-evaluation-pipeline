@@ -1,18 +1,28 @@
-# RAG Evaluation Pipeline
-
-A retrieval-augmented generation (RAG) system with built-in evaluation metrics, built from scratch using LangChain, ChromaDB, and Hugging Face embeddings.
-
 ## What it does
-Takes a set of documents, embeds them into a vector database, retrieves the most relevant chunks for any question, and evaluates retrieval quality using precision@k and user feedback.
 
-## Why I built it
-To understand how RAG systems work under the hood and how to measure whether retrieval is actually returning useful results — a core skill for production ML systems.
+A RAG pipeline that actually evaluates itself: checks if answers are grounded in the retrieved context, if they answer the question, and how much of what got retrieved was even relevant.
+
+## Why
+
+I built a RAG chatbot before (Miami Book Fair) This is me evaluating the same mechanism
 
 ## How it works
-1. Documents are split into chunks and embedded using `all-MiniLM-L6-v2` from Hugging Face
-2. Embeddings are stored in ChromaDB
-3. Questions are embedded and matched against stored chunks using cosine similarity
-4. Results are scored with precision@k and logged with user feedback
+
+- Chunk docs, embed with `all-MiniLM-L6-v2`, store in ChromaDB.
+- Generate answers with `google/flan-t5-base` (free, local, no API key).
+- Judge each answer three ways: faithfulness (grounded or made up?), relevancy (does it answer the question?), context precision@k (was the retrieved stuff actually relevant?).
+- Built precision@k two ways, keyword matching and LLM judgment. They disagreed on "What is chunking?" (0.67 vs 0.33), which is basically the whole argument for why keyword matching isn't enough.
+- Judge only answers yes/no, not a 1-5 score. Small free models aren't reliable at scoring, they're okay at yes/no.
 
 ## How to run it
-Open `notebooks/rag_evaluation.ipynb` in Google Colab and run cells top to bottom.
+
+pip install langchain langchain-community chromadb sentence-transformers tiktoken transformers
+
+Run rag_evaluation.ipynb top to bottom. Call evaluate_rag("question") for one question, or run the batch loop for aggregate numbers.
+
+What I learned
+
+- Low relevancy wasn't a generator problem, it traced back to low context precision instead.
+- Keyword matching counts a chunk as relevant just for containing a word, doesn't check if it's actually about the topic.
+- Small models judge yes/no fine, fall apart on scored ratings.
+- Hit two real bugs: a Colab torch/transformers conflict from installing mid-session, and pipeline("text2text-generation") got removed, switched to AutoModelForSeq2SeqLM directly.
